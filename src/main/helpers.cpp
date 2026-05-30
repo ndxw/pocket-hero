@@ -6,3 +6,13 @@ uint16_t getRandomColour(void)
   int randomIndex = rand() % 13;
   return colours[randomIndex];
 }
+
+// void printHitObject(HitObject* obj, char* buffer)
+// {
+//   sprintf(buffer, "lane=%d, time=%d, type=%d, endTime=%d, clicked=%d", obj->lane, obj->time, obj->type, obj->endTime, obj->clicked);
+// }
+
+// void printButtonPress(ButtonPress* press, char* buffer)
+// {
+//   sprintf(buffer, "lane=%d, timePressed=%d", press->lane, press->time);
+// }

@@ -9,73 +9,28 @@ TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
 Runway runway(tft);
 Debouncer debouncer;
 
-#define SCREEN_WIDTH 240
-#define SCREEN_HEIGHT 320
-#define SB_X 0
-#define SB_Y 0
-#define SB_W SCREEN_WIDTH
-#define SB_H 40
-#define PROGRESS_X 0
-#define PROGRESS_Y SB_Y + SB_H + 4
-#define PROGRESS_W 19
-#define PROGRESS_H 276
-#define ACC_METER_X 222
-#define ACC_METER_Y PROGRESS_Y
-#define ACC_METER_W SCREEN_WIDTH - ACC_METER_X
-#define ACC_METER_H 276
-
-
-// windows for hitting 300, 100, and 50 in milliseconds
-// approx. OD 9 in osu!
-#define PERFECT_WINDOW 50.0
-#define GREAT_WINDOW 120.0
-#define GOOD_WINDOW 220.0
-
 #define LOOP_PERIOD 30     // Display updates every 35 ms
-#define DEBOUNCE_DELAY 10  // ms
 
-//#define OVERWRITE_METER
-
-
-volatile unsigned long lastPressTime0 = 0;
-volatile unsigned long lastPressTime1 = 0;
-volatile unsigned long lastPressTime2 = 0;
-volatile unsigned long lastPressTime3 = 0;
-volatile uint8_t buttonsState = 0xff;
 volatile int counter = 0;
 uint32_t updateTime = 0;  // time for next update
-float value = 0;
-float hit_dev = -300.0;
+bool finished = false;
 
-// pointer begins in center of meter
-int prev_acc_pointer_pos = ACC_METER_Y + ACC_METER_H / 2 - 2;
-uint16_t prev_acc_pointer_row_colours[] = { TFT_CYAN, TFT_CYAN, TFT_CYAN, TFT_CYAN };
-
+hw_timer_t* timer;
 
 void initTimer(void) {
-  hw_timer_t* timer = timerBegin(1000000);
+  timer = timerBegin(1000000);
   timerAttachInterrupt(timer, &timerHandler);
   timerAlarm(timer, 1000, true, 0);
+  timerStop(timer);
 }
 
 void ARDUINO_ISR_ATTR timerHandler()
 {
   debouncer.processButtons(GPIO.in);
-  if (debouncer.buttonPressed(BIT(0)))
+  uint32_t pressedButtons = debouncer.buttonPressed(0b1111);
+  if (pressedButtons)
   {
-    counter++;
-  }
-  else if (debouncer.buttonPressed(BIT(1)))
-  {
-    counter+=2;
-  }
-  else if (debouncer.buttonPressed(BIT(2)))
-  {
-    counter+=3;
-  }
-  else if (debouncer.buttonPressed(BIT(3)))
-  {
-    counter+=4;
+    runway.addPresses(pressedButtons, millis());
   }
 }
 
@@ -88,11 +43,13 @@ void initPins(void) {
 
 
 void setup(void) {
+  Serial.begin(57600);  // For debug
+
   initPins();
   initTimer();
   tft.init();
+
   tft.setRotation(0);
-  Serial.begin(57600);  // For debug
   tft.fillScreen(TFT_BLACK);
 
   //dumpMacros();
@@ -100,7 +57,9 @@ void setup(void) {
   plotBorders();
   plotProgressBar(PROGRESS_X, PROGRESS_Y, PROGRESS_W, PROGRESS_H, 0.0);
   plotAccuracyMeter(ACC_METER_X, ACC_METER_Y, ACC_METER_W, ACC_METER_H);
-  plotScoreboard(5318008, 727, 0.996);
+  plotScoreboard(runway.getScore(), runway.getMultiplier(), runway.getAccuracy());
+
+  timerStart(timer);
 
   updateTime = millis();  // Next update time
 }
@@ -112,19 +71,28 @@ void loop() {
   if (updateTime <= millis()) {
     updateTime = millis() + LOOP_PERIOD;
 
-    //unsigned long t = micros();
-    plotAccuracyPointer(hit_dev);
-    //Serial.print(micros()-t); // Print time taken for meter update
-    //Serial.println(" us");
-    hit_dev += 1.0;
-    if (hit_dev > 300.0) hit_dev = -300.0;
-
+    runway.calculateScore();
     runway.updateRunway();
     runway.plotRunway();
 
-    plotScoreboard(counter, 727, 0.996);
+    plotScoreboard(runway.getScore(), runway.getMultiplier(), runway.getAccuracy());
     plotProgressBar(PROGRESS_X, PROGRESS_Y, PROGRESS_W, PROGRESS_H, runway.getProgress());
   }
+  // remove below
+  if (millis() > 8000 && !finished)
+  {
+    finished = true;
+    BeatmapResult result = runway.getResult();
+    char buffer[64];
+    Serial.println("Result:");
+    sprintf(buffer, "300: %d\n100: %d\n50: %d\nMiss: %d", result.num300, result.num100, result.num50, result.numMiss);
+    Serial.println(buffer);
+    sprintf(buffer, "Total object count: %d", result.num300 + result.num100 + result.num50 + result.numMiss);
+    Serial.println(buffer);
+    sprintf(buffer, "Accuracy: %f", result.accuracy);
+    Serial.println(buffer);
+  }
+  //==============
 }
 
 
@@ -163,31 +131,7 @@ void plotAccuracyMeter(int x, int y, int w, int h) {
   tft.fillRect(x, y + (ACC_METER_H - perfectHeight) / 2, w, perfectHeight, TFT_CYAN);
 }
 
-/**
-* Plots accuracy meter pointer
-*
-* @param hit_deviation Number of milliseconds the hit was away from a perfect (0 ms) hit. Can be negative.
-*/
-void plotAccuracyPointer(float hit_deviation) {
-  // first erase the old pointer by overwriting it with meter colours
-  for (int i = 0; i < 4; i++) {
-    tft.drawFastHLine(ACC_METER_X, prev_acc_pointer_pos + i, ACC_METER_W, prev_acc_pointer_row_colours[i]);
-  }
 
-  // calculate new pointer position
-  int acc_meter_center = 180;
-  int pointer_position = acc_meter_center + hit_deviation * 150.0 / 220.0;  // height of good window (px) / good window (ms)
-  if (pointer_position > SCREEN_HEIGHT - 4) pointer_position = SCREEN_HEIGHT - 4;
-  else if (pointer_position < ACC_METER_Y) pointer_position = ACC_METER_Y;
-
-  // save the new pointer position and meter colours
-  prev_acc_pointer_pos = pointer_position;
-  for (int i = 0; i < 4; i++) {
-    prev_acc_pointer_row_colours[i] = tft.readPixel(ACC_METER_X, i + pointer_position);
-  }
-
-  tft.fillRect(ACC_METER_X, pointer_position, ACC_METER_W, 4, TFT_RED);
-}
 
 /**
 * Plots white borders between panels
@@ -216,11 +160,17 @@ void plotBorders(void) {
 void plotScoreboard(int score, int multiplier, float accuracy) {
   char buffer[32];
   sprintf(buffer, "%012d", score);
-  tft.drawString(buffer, 3, 2, 4);
+  tft.setTextPadding(0);
+  tft.setTextDatum(BL_DATUM);
+  tft.drawString(buffer, 3, 26, 4);
+
   sprintf(buffer, "x%d", multiplier);
-  tft.drawString(buffer, 3, 24, 2);
+  tft.setTextDatum(BL_DATUM);
+  tft.drawString(buffer, 3, 38, 2);
+
   sprintf(buffer, "%.1f%%", accuracy * 100);
-  tft.drawString(buffer, 198, 24, 2);
+  tft.setTextDatum(BR_DATUM);
+  tft.drawString(buffer, 236, 38, 2);
 }
 
 
