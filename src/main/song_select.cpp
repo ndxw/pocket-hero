@@ -25,7 +25,7 @@ SongSelect::SongSelect(TFT_eSPI& tft, Pages& page) : Page(tft, page)
 void SongSelect::processInputs()
 {
   // process each button press
-  std::vector<ButtonPress>::iterator press;
+  std::vector<Input>::iterator press;
   for (press = inputs.begin(); press < inputs.end(); press++)
   {
     switch (press->lane) 

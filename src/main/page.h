@@ -17,6 +17,7 @@ class Page {
 
   public:
     Page(TFT_eSPI&, Pages&);
+    void queuePresses(uint32_t);
     void queueInputs(uint32_t, uint32_t);
 };
 

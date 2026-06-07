@@ -8,7 +8,9 @@ MainMenu::MainMenu(TFT_eSPI& tft, Pages& page) : Page(tft, page)
 
 void MainMenu::processInputs()
 {
-  if (!inputs.empty())
+  // process each button press
+  std::vector<Input>::iterator press;
+  for (press = inputs.begin(); press < inputs.end(); press++)
   {
     currentPage = Pages::SongSelect;
   }

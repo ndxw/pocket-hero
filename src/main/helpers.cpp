@@ -24,7 +24,7 @@ std::string padLeftZeros(std::string oldStr, size_t nZero)
 
 std::string noteToString(Note note)
 {
-  return "{lane:" + std::to_string(note.lane) + ", timeMs: " + std::to_string(note.timeMs) + ", type: " + std::to_string(note.type) + ", endTimeMs:" + std::to_string(note.endTimeMs) + ", clicked:" + std::to_string(note.clicked) + "}";
+  return "{lane:" + std::to_string(note.lane) + ", timeMs: " + std::to_string(note.timeMs) + ", type: " + (note.type == NoteType::Hit ? "Hit" : "Slider") + ", endTimeMs:" + std::to_string(note.endTimeMs) + ", clicked:" + std::to_string(note.clicked) + "}";
 }
 
 void resultToString (BeatmapResult result, char* buffer)

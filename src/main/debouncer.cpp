@@ -32,16 +32,16 @@ void Debouncer::processButtons(uint32_t portValues)
 
 uint32_t Debouncer::buttonPressed(uint32_t buttonPins)
 {
-    return (changed & debouncedState) & buttonPins;
+    return (changed & (~debouncedState)) & buttonPins;
 }
 
 uint32_t Debouncer::buttonReleased(uint32_t buttonPins)
 {
-    return (changed & (~debouncedState)) & buttonPins;
+    return (changed & debouncedState) & buttonPins;
 }
 
 uint32_t Debouncer::buttonHeld(uint32_t buttonPins)
 {
-    return debouncedState & buttonPins;
+    return (~debouncedState) & buttonPins;
 }
 

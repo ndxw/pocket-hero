@@ -40,6 +40,32 @@
 
 #define HIT_LINE_Y 220 // relative to top of runway
 
+enum class InputType {
+  Press,
+  Release
+};
+
+enum class NoteType {
+  Hit,
+  Slider
+};
+
+enum class HitJudgement {
+  Miss,
+  _50,
+  _100,
+  _300
+};
+
+enum class Pages {
+  MainMenu,
+  SongSelect,
+  SongSelection,
+  BeatmapAttempt,
+  ResultPage,
+  Leaderboard
+};
+
 struct Song {
   std::string title;
   std::string artist;
@@ -52,9 +78,19 @@ struct Song {
 struct Note {
   uint8_t lane;
   uint32_t timeMs;
-  uint8_t type;
+  NoteType type;
   uint32_t endTimeMs;
+  bool pending;
   bool clicked;
+  HitJudgement judgement;
+  uint32_t multiplier;
+};
+
+struct NoteData {
+  uint8_t lane;
+  uint32_t timeMs;
+  NoteType type;
+  uint32_t endTimeMs;
 };
 
 struct NotePosition {
@@ -80,19 +116,7 @@ struct BeatmapResult {
   // add date and time
 };
 
-enum class InputType {
-  Press,
-  Release
-}
 
-enum class Pages {
-  MainMenu,
-  SongSelect,
-  SongSelection,
-  BeatmapAttempt,
-  ResultPage,
-  Leaderboard
-};
 
 uint16_t getRandomColour(void);
 std::string msToClockTime(uint32_t ms);

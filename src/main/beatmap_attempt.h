@@ -13,10 +13,10 @@ class BeatmapAttempt : public Page
   private:
     int prevAccPtrPos = ACC_METER_Y + ACC_METER_H / 2 - 2;
     uint16_t prevAccPtrRowColours[4] = { TFT_CYAN, TFT_CYAN, TFT_CYAN, TFT_CYAN };
-    unsigned long startTimeMs;
-    unsigned long finishTimeMs;
-    float approachTimeMs; 
-    float timeToLiveMs; // How long each object lives after reaching the hit line. Should be long enough such that the object moves off-screen before being killed.
+    uint32_t startTimeMs;
+    uint32_t finishTimeMs;
+    uint32_t approachTimeMs; 
+    uint32_t timeToLiveMs; // How long each object lives after reaching the hit line. Should be long enough such that the object moves off-screen before being killed.
     float objectYRatio; // for calculating distance from the top of the runway, px/ms
     uint32_t score;
     uint32_t maxCombo;

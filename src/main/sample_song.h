@@ -4,8 +4,8 @@
 #include <vector>
 #include "helpers.h"
 
-extern std::vector<Note> sampleSong;
-extern std::vector<Note> sampleSong1;
-extern std::vector<Note> sampleHold;
+extern std::vector<NoteData> sampleSong;
+extern std::vector<NoteData> sampleLong;
+extern std::vector<NoteData> sampleHold;
 
 #endif // SAMPLE_SONG_H

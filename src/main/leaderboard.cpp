@@ -9,7 +9,7 @@ Leaderboard::Leaderboard(TFT_eSPI& tft, Pages& page) : Page(tft, page)
 void Leaderboard::processInputs()
 {
   // process each button press
-  std::vector<ButtonPress>::iterator input;
+  std::vector<Input>::iterator input;
   for (input = inputs.begin(); input < inputs.end(); input++)
   {
     switch (input->lane) 

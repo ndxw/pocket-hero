@@ -14,7 +14,7 @@ void SongSelection::setSong(Song song)
 void SongSelection::processInputs()
 {
   // process each button press
-  std::vector<ButtonPress>::iterator press;
+  std::vector<Input>::iterator press;
   for (press = inputs.begin(); press < inputs.end(); press++)
   {
     switch (press->lane) 

@@ -8,9 +8,9 @@ BeatmapAttempt::BeatmapAttempt(TFT_eSPI& tft, Pages& page) : Page(tft, page)
 
 void BeatmapAttempt::loadBeatmap()
 {
-  approachTimeMs = 600.0;
-  timeToLiveMs = approachTimeMs / 3.0; // How long each object lives after reaching the hit line. Should be long enough such that the object moves off-screen before being killed.
-  objectYRatio = HIT_LINE_Y / approachTimeMs; // for calculating distance from the top of the runway, px/ms
+  approachTimeMs = 600;
+  timeToLiveMs = static_cast<uint32_t>(approachTimeMs / 3.0f); // How long each object lives after reaching the hit line. Should be long enough such that the object moves off-screen before being killed.
+  objectYRatio = HIT_LINE_Y / static_cast<float>(approachTimeMs); // for calculating distance from the top of the runway, px/ms
 
   score = 0;
   maxCombo = 1;
@@ -22,9 +22,11 @@ void BeatmapAttempt::loadBeatmap()
   numMiss = 0;
 
   notes.clear();
-  for (size_t i = 0; i < sampleSong.size(); i++)
+  std::vector<NoteData>::iterator noteData;
+  for (noteData = sampleSong.begin(); noteData < sampleSong.end(); noteData++)
   {
-    notes.push_back(sampleSong[i]);
+    Note note = {noteData->lane, noteData->timeMs, noteData->type, noteData->endTimeMs, false, false, HitJudgement::Miss, NULL};
+    notes.push_back(note);
   }
 
   nextNote = notes.begin();
@@ -46,7 +48,7 @@ void BeatmapAttempt::processInputs()
     size_t noteIndex;
     for (noteIndex = 0; noteIndex < notesInPlay.size(); noteIndex++)
     {
-      int pressTimeMs = inputs[pressIndex].timeMs - startTimeMs; // convert input global timestamp to beatmap timestamp
+      int32_t pressTimeMs = inputs[pressIndex].timeMs - startTimeMs; // convert input global timestamp to beatmap timestamp
       /*
       Conditions for matching an input to a note:
       1. Note has not yet been clicked
@@ -55,17 +57,17 @@ void BeatmapAttempt::processInputs()
       */
       if (!notesInPlay[noteIndex].clicked && 
           inputs[pressIndex].lane == notesInPlay[noteIndex].lane && 
-          std::abs(pressTimeMs - notesInPlay[noteIndex].timeMs) <= GOOD_WINDOW / 2.0)
+          std::abs(pressTimeMs - static_cast<int32_t>(notesInPlay[noteIndex].timeMs)) <= GOOD_WINDOW / 2.0f)
       {
         found = true;
         notesInPlay[noteIndex].clicked = true;
 
         // update accuracy meter pointer
-        int hitDeviation = pressTimeMs - notesInPlay[noteIndex].timeMs;
+        int32_t hitDeviation = pressTimeMs - notesInPlay[noteIndex].timeMs;
         plotAccuracyPointer(hitDeviation);
 
         // score input 
-        if (std::abs(hitDeviation) <= PERFECT_WINDOW / 2.0)
+        if (std::abs(hitDeviation) <= PERFECT_WINDOW / 2.0f)
         {
           num300++;
           noteScore = 300 * multiplier;
@@ -98,7 +100,7 @@ void BeatmapAttempt::processInputs()
 
   score += noteScore;
   if (completedCount != 0) { accuracy = (300 * num300 + 100 * num100 + 50 * num50) / static_cast<float>(300 * (num300 + num100 + num50 + numMiss)); }
-  else { accuracy = 1.0; }
+  else { accuracy = 1.0f; }
   
 }
 

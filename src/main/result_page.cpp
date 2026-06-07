@@ -12,7 +12,7 @@ void ResultPage::setResult(BeatmapResult result)
 void ResultPage::processInputs()
 {
   // process each button press
-  std::vector<ButtonPress>::iterator press;
+  std::vector<Input>::iterator press;
   for (press = inputs.begin(); press < inputs.end(); press++)
   {
     currentPage = Pages::SongSelect;

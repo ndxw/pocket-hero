@@ -140,17 +140,17 @@ void ARDUINO_ISR_ATTR timerHandler()
     switch (currentPage)
     {
       case Pages::MainMenu:
-        mainMenu.queueInputs(pressedButtons, releasedButtons); break;
+        mainMenu.queuePresses(pressedButtons); break;
       case Pages::SongSelect:
-        songSelect.queueInputs(pressedButtons, releasedButtons); break;
+        songSelect.queuePresses(pressedButtons); break;
       case Pages::SongSelection:
-        songSelection.queueInputs(pressedButtons, releasedButtons); break;
+        songSelection.queuePresses(pressedButtons); break;
       case Pages::BeatmapAttempt:
         beatmapAttempt.queueInputs(pressedButtons, releasedButtons); break;
       case Pages::ResultPage:
-        resultPage.queueInputs(pressedButtons, releasedButtons); break;
+        resultPage.queuePresses(pressedButtons); break;
       case Pages::Leaderboard:
-        leaderboard.queueInputs(pressedButtons, releasedButtons); break;
+        leaderboard.queuePresses(pressedButtons); break;
 
     }
   }
