@@ -4,6 +4,8 @@
 #include <vector>
 #include "helpers.h"
 
-extern std::vector<HitObject> hit_objs;
+extern std::vector<Note> sampleSong;
+extern std::vector<Note> sampleSong1;
+extern std::vector<Note> sampleHold;
 
-#endif
+#endif // SAMPLE_SONG_H

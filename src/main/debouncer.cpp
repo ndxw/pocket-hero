@@ -3,12 +3,12 @@
 Debouncer::Debouncer()
 {    
     index = 0;
-    debouncedState = 0x00;
+    debouncedState = 0b1111;
     changed = 0x00;
     
     for(int i = 0; i < NUM_DEBOUNCE_SAMPLES; i++)
     {
-        state[i] = 0x00;
+        state[i] = 0b1111;
     }
 }
 
