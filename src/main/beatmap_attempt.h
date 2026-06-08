@@ -2,6 +2,8 @@
 #define BEATMAP_ATTEMPT_H
 
 #include <vector>
+#include <deque>
+#include <array>
 #include <TFT_eSPI.h>
 
 #include "sample_song.h"
@@ -30,7 +32,7 @@ class BeatmapAttempt : public Page
 
     std::vector<Note> notes;
     std::vector<Note>::iterator nextNote;
-    std::vector<Note> notesInPlay;
+    std::array<std::deque<Note>, 4> notesVisible;
     std::vector<NotePosition> notePositions;
     std::vector<NotePosition> prevNotePositions;
 

@@ -24,8 +24,27 @@ std::string padLeftZeros(std::string oldStr, size_t nZero)
 
 std::string noteToString(Note note)
 {
-  return "{lane:" + std::to_string(note.lane) + ", timeMs: " + std::to_string(note.timeMs) + ", type: " + (note.type == NoteType::Hit ? "Hit" : "Slider") + ", endTimeMs:" + std::to_string(note.endTimeMs) + ", clicked:" + std::to_string(note.clicked) + "}";
+  std::string judgement;
+  switch (note.judgement) {
+    case HitJudgement::_300:
+      judgement = "300"; break;
+    case HitJudgement::_100:
+      judgement = "100"; break;
+    case HitJudgement::_50:
+      judgement = "50"; break;
+    case HitJudgement::Miss:
+      judgement = "Miss"; break;
+  }
+  return "{lane: " + std::to_string(note.lane) + ", timeMs: " + std::to_string(note.timeMs) + ", type: " + (note.type == NoteType::Hit ? "Hit" : "Slider") + ", endTimeMs: " + std::to_string(note.endTimeMs) + 
+          ", active: " + std::to_string(note.active) + ", pending: " + std::to_string(note.pending) + ", clicked: " + std::to_string(note.clicked) + 
+          ", judgement: " + judgement + ", multiplier: " + std::to_string(note.multiplier) + "}";
 }
+
+std::string notePosToString(NotePosition pos)
+{
+  return "{lane:" + std::to_string(pos.lane) + ", noteY: " + std::to_string(pos.noteY) + ", active: " + std::to_string(pos.active) + "}";
+}
+
 
 void resultToString (BeatmapResult result, char* buffer)
 {

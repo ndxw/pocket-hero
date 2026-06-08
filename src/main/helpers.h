@@ -33,10 +33,28 @@
 #define ACC_METER_H 276
 
 // windows for hitting 300, 100, and 50 in milliseconds
-// approx. OD 9 in osu!
-#define PERFECT_WINDOW 50.0
-#define GREAT_WINDOW 120.0
-#define GOOD_WINDOW 220.0
+#define OD_8
+#if defined(OD_7)
+#define PERFECT_DEVIATION 38.0
+#define GREAT_DEVIATION 84.0
+#define GOOD_DEVIATION 130.0
+#elif defined(OD_8)
+#define PERFECT_DEVIATION 32.0
+#define GREAT_DEVIATION 75.0
+#define GOOD_DEVIATION 120.0
+#elif defined(OD_9)
+#define PERFECT_DEVIATION 25.0
+#define GREAT_DEVIATION 67.0
+#define GOOD_DEVIATION 110.0
+#elif defined(OD_10)
+#define PERFECT_DEVIATION 20.0
+#define GREAT_DEVIATION 60.0
+#define GOOD_DEVIATION 100.0
+#elif defined(OD_DEBUG)
+#define PERFECT_DEVIATION 250.0
+#define GREAT_DEVIATION 250.0
+#define GOOD_DEVIATION 250.0
+#endif
 
 #define HIT_LINE_Y 220 // relative to top of runway
 
@@ -80,6 +98,7 @@ struct Note {
   uint32_t timeMs;
   NoteType type;
   uint32_t endTimeMs;
+  bool active;
   bool pending;
   bool clicked;
   HitJudgement judgement;
@@ -96,6 +115,7 @@ struct NoteData {
 struct NotePosition {
   uint8_t lane;
   int noteY;
+  bool active;
 };
 
 struct Input {
@@ -122,6 +142,7 @@ uint16_t getRandomColour(void);
 std::string msToClockTime(uint32_t ms);
 std::string padLeftZeros(std::string oldStr, size_t nZero);
 std::string noteToString(Note note);
+std::string notePosToString(NotePosition pos);
 void resultToString (BeatmapResult, char*);
 // void printButtonPress(ButtonPress* press, char* buffer);
 

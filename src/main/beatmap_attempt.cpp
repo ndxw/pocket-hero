@@ -25,7 +25,7 @@ void BeatmapAttempt::loadBeatmap()
   std::vector<NoteData>::iterator noteData;
   for (noteData = sampleSong.begin(); noteData < sampleSong.end(); noteData++)
   {
-    Note note = {noteData->lane, noteData->timeMs, noteData->type, noteData->endTimeMs, false, false, HitJudgement::Miss, NULL};
+    Note note = {noteData->lane, noteData->timeMs, noteData->type, noteData->endTimeMs, false, false, false, HitJudgement::Miss, 1};
     notes.push_back(note);
   }
 
@@ -42,55 +42,62 @@ void BeatmapAttempt::processInputs()
 {
   uint32_t noteScore = 0;
 
-  for (size_t pressIndex = 0; pressIndex < inputs.size(); pressIndex++)
+  for (auto& input : inputs)
   {
+    if (input.type == InputType::Release) { continue; }
+
     bool found = false;
-    size_t noteIndex;
-    for (noteIndex = 0; noteIndex < notesInPlay.size(); noteIndex++)
+    for (auto& note : notesVisible[input.lane])
     {
-      int32_t pressTimeMs = inputs[pressIndex].timeMs - startTimeMs; // convert input global timestamp to beatmap timestamp
+      int32_t pressTimeMs = input.timeMs - startTimeMs; // convert input global timestamp to beatmap timestamp
+      int32_t hitDeviation = pressTimeMs - static_cast<int32_t>(note.timeMs);
       /*
+      Find earliest active note.
       Conditions for matching an input to a note:
       1. Note has not yet been clicked
-      2. Note is in the same lane as the input
+      2. Note is active
       3. Input is within the active window of the note
       */
-      if (!notesInPlay[noteIndex].clicked && 
-          inputs[pressIndex].lane == notesInPlay[noteIndex].lane && 
-          std::abs(pressTimeMs - static_cast<int32_t>(notesInPlay[noteIndex].timeMs)) <= GOOD_WINDOW / 2.0f)
+      if (!note.clicked && note.active &&
+          std::abs(hitDeviation) <= GOOD_DEVIATION)
       {
+        Serial.println("notes/input match");
         found = true;
-        notesInPlay[noteIndex].clicked = true;
+        note.clicked = true;
+        note.pending = true;
 
         // update accuracy meter pointer
-        int32_t hitDeviation = pressTimeMs - notesInPlay[noteIndex].timeMs;
         plotAccuracyPointer(hitDeviation);
 
         // score input 
-        if (std::abs(hitDeviation) <= PERFECT_WINDOW / 2.0f)
+        if (std::abs(hitDeviation) <= PERFECT_DEVIATION)
         {
           num300++;
           noteScore = 300 * multiplier;
+          note.judgement = HitJudgement::_300;
         }
-        else if (std::abs(hitDeviation) <= GREAT_WINDOW / 2.0)
+        else if (std::abs(hitDeviation) <= GREAT_DEVIATION)
         {
           num100++;
           noteScore = 100 * multiplier;
+          note.judgement = HitJudgement::_100;
         }
         else 
         {
           num50++;
           noteScore = 50 * multiplier;
+          note.judgement = HitJudgement::_50;
         }
 
+        note.multiplier = multiplier;
         multiplier++;
         break;
       }
     }
 
-    if (!found && notesInPlay.size() != 0)
+    // if input outside all active windows, reset multiplier (and combo)
+    if (!found && notesVisible[input.lane].size() != 0)
     {
-      numMiss++;
       if (multiplier > maxCombo) { maxCombo = multiplier; } // update max combo
       multiplier = 1;
     }
@@ -101,58 +108,114 @@ void BeatmapAttempt::processInputs()
   score += noteScore;
   if (completedCount != 0) { accuracy = (300 * num300 + 100 * num100 + 50 * num50) / static_cast<float>(300 * (num300 + num100 + num50 + numMiss)); }
   else { accuracy = 1.0f; }
+      //Serial.println("exit processInput\n");
   
 }
 
 void BeatmapAttempt::updateNotes()
 {
-  unsigned long beatmapTimeMs = millis() - startTimeMs;
+  uint32_t beatmapTimeMs = millis() - startTimeMs;
+  Serial.print("Current beatmap time: ");
+  Serial.println(beatmapTimeMs);
 
   // remove old note positions
   notePositions.clear();
 
-  // check if any new notes have come into play
+  // check if any new notes have become visible
   while (nextNote != notes.end() && nextNote->timeMs <= beatmapTimeMs + approachTimeMs)
   {
-    notesInPlay.push_back(*nextNote);
+    Serial.println("new note:");
+    const char* noteStr = noteToString(*nextNote).c_str();
+    Serial.println(noteStr);
+    notesVisible[nextNote->lane].push_back(*nextNote);
     nextNote++;
   }
 
-  // check if any notes have expired
-  while (!notesInPlay.empty() && beatmapTimeMs > notesInPlay.begin()->timeMs + timeToLiveMs)
+  for (size_t lane = 0; lane < 4; lane++)
   {
-    // if note expired without being clicked, a miss is counted
-    if (!notesInPlay.begin()->clicked)
+    Serial.print("active/inactive check lane: ");
+    Serial.println(lane);
+    for (auto& note : notesVisible[lane])
     {
-      numMiss++;
-      if (multiplier > maxCombo) { maxCombo = multiplier; } // update max combo
-      multiplier = 1;
+      // check if any notes have become inactive i.e. exited the window of a "good" judgement
+      if (note.active && beatmapTimeMs > note.endTimeMs + GOOD_DEVIATION)
+      {
+        // Serial.println("inactive note before:");
+        // const char* noteStr = noteToString(note).c_str();
+        // Serial.println(noteStr);
+
+        note.active = false;
+        note.pending = false;
+        // if note become inactive without being clicked, a miss is counted
+        if (!note.clicked)
+        {
+          note.judgement = HitJudgement::Miss;
+          numMiss++;
+          if (multiplier > maxCombo) { maxCombo = multiplier; }
+          multiplier = 1;
+        }
+        completedCount++;
+        Serial.println("inactive note:");
+        const char* noteStr1 = noteToString(note).c_str();
+        Serial.println(noteStr1);
+      }
+      // check if any notes have become active i.e. entered the window of a "good" judgement
+      if (!note.active && beatmapTimeMs <= note.endTimeMs + GOOD_DEVIATION && beatmapTimeMs >= note.timeMs - GOOD_DEVIATION)
+      {
+        note.active = true;
+        Serial.println("active note:");
+        const char* noteStr = noteToString(note).c_str();
+        Serial.println(noteStr);
+      }
     }
-    notesInPlay.erase(notesInPlay.begin());
-    completedCount++;
   }
 
-  // calculate how far down each note has travelled
-  for (size_t i = 0; i < notesInPlay.size(); i++)
+  // check if any notes have expired
+  for (size_t lane = 0; lane < 4; lane++)
   {
-    int timeInPlayMs = beatmapTimeMs - (notesInPlay[i].timeMs - approachTimeMs);
-    int noteY = timeInPlayMs * objectYRatio;
+    Serial.print("expiry check lane: ");
+    Serial.println(lane);
+    while (!notesVisible[lane].empty() && beatmapTimeMs > notesVisible[lane].front().endTimeMs + timeToLiveMs)
+    {
+      Serial.println("note expired:");
+      // const char* noteStr = noteToString(notesVisible[lane].front()).c_str();
+      // Serial.println(noteStr);
+      notesVisible[lane].pop_front();
+    }
+  }
+  
+  int timeVisibleMs, noteY;
 
-    NotePosition pos{notesInPlay[i].lane, noteY};
-    notePositions.push_back(pos);
+  // calculate how far down each note has travelled
+  for (size_t lane = 0; lane < 4; lane++)
+  {
+    Serial.print("movement calc lane: ");
+    Serial.println(lane);
+    for (auto& note : notesVisible[lane])
+    {
+      timeVisibleMs = beatmapTimeMs - (note.timeMs - approachTimeMs);
+      noteY = timeVisibleMs * objectYRatio;
+      NotePosition pos{lane, noteY, note.active};
+      notePositions.push_back(pos);
+      Serial.println("note moved:");
+      Serial.println(notePosToString(pos).c_str());
+    }
   }
 
   // 3 second pause at the end of the beatmap
-  if (nextNote == notes.end() && notesInPlay.empty())
+  if (nextNote == notes.end() && notesVisible[0].empty() && notesVisible[1].empty() && notesVisible[2].empty() && notesVisible[3].empty())
   {
     if (finishTimeMs == 0) { finishTimeMs = millis() + 3000; }
     else if (millis() >= finishTimeMs) 
     { 
+      Serial.println("song FINISHED");
       if (multiplier > maxCombo) { maxCombo = multiplier; } // update max combo
       finished = true;
       currentPage = Pages::ResultPage;
     }
   }
+      //Serial.println("exit updateNotes\n");
+
 }
 
 /**
@@ -171,6 +234,7 @@ void BeatmapAttempt::plot()
 */
 void BeatmapAttempt::plotNotes()
 {
+  //Serial.println("clearing old notes");
   // clear old notes
   for (uint32_t i = 0; i < prevNotePositions.size(); i++)
   {
@@ -178,12 +242,21 @@ void BeatmapAttempt::plotNotes()
   }
   prevNotePositions.clear();
 
+  //Serial.println("plotting new notes");
   // plot new notes 
   for (uint32_t i = 0; i < notePositions.size(); i++)
   {
     prevNotePositions.push_back(notePositions[i]);
-    tft.fillRect(RUNWAY_X + 50 * notePositions[i].lane, RUNWAY_Y + notePositions[i].noteY, 49, 10, TFT_MAGENTA);
+    if (notePositions[i].active)
+    {
+      tft.fillRect(RUNWAY_X + 50 * notePositions[i].lane, RUNWAY_Y + notePositions[i].noteY, 49, 10, TFT_GREENYELLOW);
+    }
+    else
+    {
+      tft.fillRect(RUNWAY_X + 50 * notePositions[i].lane, RUNWAY_Y + notePositions[i].noteY, 49, 10, TFT_MAGENTA);
+    }
   }
+  //Serial.println("exit plotNotes\n");
 }
 
 /**
@@ -240,8 +313,8 @@ void BeatmapAttempt::plotHitLine(void)
 void BeatmapAttempt::plotAccuracyMeter() 
 {
   int goodHeight = 150;
-  int greatHeight = GREAT_WINDOW / GOOD_WINDOW * goodHeight;
-  int perfectHeight = PERFECT_WINDOW / GOOD_WINDOW * goodHeight;
+  int greatHeight = (GREAT_DEVIATION * 2) / (GOOD_DEVIATION * 2) * goodHeight;
+  int perfectHeight = (PERFECT_DEVIATION * 2) / (GOOD_DEVIATION * 2) * goodHeight;
   tft.fillRect(ACC_METER_X, ACC_METER_Y, ACC_METER_W, ACC_METER_H, TFT_BLACK);
   tft.fillRect(ACC_METER_X, ACC_METER_Y + (ACC_METER_H - goodHeight) / 2, ACC_METER_W, goodHeight, TFT_ORANGE);
   tft.fillRect(ACC_METER_X, ACC_METER_Y + (ACC_METER_H - greatHeight) / 2, ACC_METER_W, greatHeight, TFT_GREENYELLOW);
@@ -262,7 +335,7 @@ void BeatmapAttempt::plotAccuracyPointer(float hitDeviation)
 
   // calculate new pointer position
   int accMeterCenter = 180;
-  int ptrPosition = accMeterCenter + hitDeviation * 150.0 / GOOD_WINDOW;  // height of good window (px) / good window (ms)
+  int ptrPosition = accMeterCenter + hitDeviation * 150.0 / (GOOD_DEVIATION * 2);  // height of good window (px) / good window (ms)
   if (ptrPosition > SCREEN_HEIGHT - 4) ptrPosition = SCREEN_HEIGHT - 4;
   else if (ptrPosition < ACC_METER_Y) ptrPosition = ACC_METER_Y;
 
