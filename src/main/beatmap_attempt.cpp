@@ -40,12 +40,11 @@ void BeatmapAttempt::loadBeatmap()
 
 void BeatmapAttempt::processInputs()
 {
-  uint32_t noteScore = 0;
-
   for (auto& input : inputs)
   {
     if (input.type == InputType::Release) { continue; }
 
+    uint32_t noteScore = 0;
     bool found = false;
     for (auto& note : notesVisible[input.lane])
     {
@@ -61,7 +60,7 @@ void BeatmapAttempt::processInputs()
       if (!note.clicked && note.active &&
           std::abs(hitDeviation) <= GOOD_DEVIATION)
       {
-        Serial.println("notes/input match");
+        // Serial.println("notes/input match");
         found = true;
         note.clicked = true;
         note.pending = true;
@@ -101,22 +100,21 @@ void BeatmapAttempt::processInputs()
       if (multiplier > maxCombo) { maxCombo = multiplier; } // update max combo
       multiplier = 1;
     }
+
+    score += noteScore;
+    if (completedCount != 0) { accuracy = (300 * num300 + 100 * num100 + 50 * num50) / static_cast<float>(300 * (num300 + num100 + num50 + numMiss)); }
+    else { accuracy = 1.0f; }
   }
 
   inputs.clear();
-
-  score += noteScore;
-  if (completedCount != 0) { accuracy = (300 * num300 + 100 * num100 + 50 * num50) / static_cast<float>(300 * (num300 + num100 + num50 + numMiss)); }
-  else { accuracy = 1.0f; }
-      //Serial.println("exit processInput\n");
-  
+  //Serial.println("exit processInput\n");
 }
 
 void BeatmapAttempt::updateNotes()
 {
   uint32_t beatmapTimeMs = millis() - startTimeMs;
-  Serial.print("Current beatmap time: ");
-  Serial.println(beatmapTimeMs);
+  // Serial.print("Current beatmap time: ");
+  // Serial.println(beatmapTimeMs);
 
   // check if any new notes have become visible
   while (nextNote != notes.end() && nextNote->timeMs <= beatmapTimeMs + approachTimeMs)
@@ -258,9 +256,9 @@ void BeatmapAttempt::plotNotes()
   {
     prevNotePositions.push_back(pos);
 
-    Serial.println("plotting note:");
-    const char* posStr = notePosToString(pos).c_str();
-      Serial.println(posStr);
+    // Serial.println("plotting note:");
+    // const char* posStr = notePosToString(pos).c_str();
+    //   Serial.println(posStr);
 
     if (pos.active) { noteColour = TFT_GREENYELLOW; }
     else { noteColour = TFT_MAGENTA; }
