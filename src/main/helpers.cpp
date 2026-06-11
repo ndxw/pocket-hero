@@ -42,7 +42,7 @@ std::string noteToString(Note note)
 
 std::string notePosToString(NotePosition pos)
 {
-  return "{lane:" + std::to_string(pos.lane) + ", noteY: " + std::to_string(pos.noteY) + ", active: " + std::to_string(pos.active) + "}";
+  return "{lane:" + std::to_string(pos.lane) + ", y: " + std::to_string(pos.y) + ", height: " + std::to_string(pos.height) + ", active: " + std::to_string(pos.active) + "}";
 }
 
 

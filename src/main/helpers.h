@@ -33,7 +33,7 @@
 #define ACC_METER_H 276
 
 // windows for hitting 300, 100, and 50 in milliseconds
-#define OD_8
+#define OD_7
 #if defined(OD_7)
 #define PERFECT_DEVIATION 38.0
 #define GREAT_DEVIATION 84.0
@@ -114,7 +114,8 @@ struct NoteData {
 
 struct NotePosition {
   uint8_t lane;
-  int noteY;
+  int y;
+  uint32_t height;
   bool active;
 };
 

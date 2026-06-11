@@ -23,7 +23,7 @@ void BeatmapAttempt::loadBeatmap()
 
   notes.clear();
   std::vector<NoteData>::iterator noteData;
-  for (noteData = sampleSong.begin(); noteData < sampleSong.end(); noteData++)
+  for (noteData = sampleHold.begin(); noteData < sampleHold.end(); noteData++)
   {
     Note note = {noteData->lane, noteData->timeMs, noteData->type, noteData->endTimeMs, false, false, false, HitJudgement::Miss, 1};
     notes.push_back(note);
@@ -118,27 +118,24 @@ void BeatmapAttempt::updateNotes()
   Serial.print("Current beatmap time: ");
   Serial.println(beatmapTimeMs);
 
-  // remove old note positions
-  notePositions.clear();
-
   // check if any new notes have become visible
   while (nextNote != notes.end() && nextNote->timeMs <= beatmapTimeMs + approachTimeMs)
   {
-    Serial.println("new note:");
-    const char* noteStr = noteToString(*nextNote).c_str();
-    Serial.println(noteStr);
+    // Serial.println("new note:");
+    // const char* noteStr = noteToString(*nextNote).c_str();
+    // Serial.println(noteStr);
     notesVisible[nextNote->lane].push_back(*nextNote);
     nextNote++;
   }
 
   for (size_t lane = 0; lane < 4; lane++)
   {
-    Serial.print("active/inactive check lane: ");
-    Serial.println(lane);
+    // Serial.print("active/inactive check lane: ");
+    // Serial.println(lane);
     for (auto& note : notesVisible[lane])
     {
       // check if any notes have become inactive i.e. exited the window of a "good" judgement
-      if (note.active && beatmapTimeMs > note.endTimeMs + GOOD_DEVIATION)
+      if (beatmapTimeMs > note.endTimeMs + GOOD_DEVIATION && note.active)
       {
         // Serial.println("inactive note before:");
         // const char* noteStr = noteToString(note).c_str();
@@ -155,17 +152,17 @@ void BeatmapAttempt::updateNotes()
           multiplier = 1;
         }
         completedCount++;
-        Serial.println("inactive note:");
-        const char* noteStr1 = noteToString(note).c_str();
-        Serial.println(noteStr1);
+        // Serial.println("inactive note:");
+        // const char* noteStr1 = noteToString(note).c_str();
+        // Serial.println(noteStr1);
       }
       // check if any notes have become active i.e. entered the window of a "good" judgement
-      if (!note.active && beatmapTimeMs <= note.endTimeMs + GOOD_DEVIATION && beatmapTimeMs >= note.timeMs - GOOD_DEVIATION)
+      if (beatmapTimeMs <= note.endTimeMs + GOOD_DEVIATION && beatmapTimeMs >= note.timeMs - GOOD_DEVIATION && !note.active)
       {
         note.active = true;
-        Serial.println("active note:");
-        const char* noteStr = noteToString(note).c_str();
-        Serial.println(noteStr);
+        // Serial.println("active note:");
+        // const char* noteStr = noteToString(note).c_str();
+        // Serial.println(noteStr);
       }
     }
   }
@@ -173,11 +170,11 @@ void BeatmapAttempt::updateNotes()
   // check if any notes have expired
   for (size_t lane = 0; lane < 4; lane++)
   {
-    Serial.print("expiry check lane: ");
-    Serial.println(lane);
+    // Serial.print("expiry check lane: ");
+    // Serial.println(lane);
     while (!notesVisible[lane].empty() && beatmapTimeMs > notesVisible[lane].front().endTimeMs + timeToLiveMs)
     {
-      Serial.println("note expired:");
+      // Serial.println("note expired:");
       // const char* noteStr = noteToString(notesVisible[lane].front()).c_str();
       // Serial.println(noteStr);
       notesVisible[lane].pop_front();
@@ -185,27 +182,32 @@ void BeatmapAttempt::updateNotes()
   }
   
   int timeVisibleMs, noteY;
+  uint32_t noteHeight;
+  notePositions.clear(); // remove old note positions
 
   // calculate how far down each note has travelled
   for (size_t lane = 0; lane < 4; lane++)
   {
-    Serial.print("movement calc lane: ");
-    Serial.println(lane);
+    // Serial.print("movement calc lane: ");
+    // Serial.println(lane);
     for (auto& note : notesVisible[lane])
     {
       timeVisibleMs = beatmapTimeMs - (note.timeMs - approachTimeMs);
       noteY = timeVisibleMs * objectYRatio;
-      NotePosition pos{lane, noteY, note.active};
+      noteHeight = (note.endTimeMs - note.timeMs) * objectYRatio;
+      noteHeight = std::min(static_cast<int>(noteHeight), noteY);
+
+      NotePosition pos{lane, noteY, noteHeight, note.active};
       notePositions.push_back(pos);
-      Serial.println("note moved:");
-      Serial.println(notePosToString(pos).c_str());
+      // Serial.println("note moved:");
+      // Serial.println(notePosToString(pos).c_str());
     }
   }
 
   // 3 second pause at the end of the beatmap
   if (nextNote == notes.end() && notesVisible[0].empty() && notesVisible[1].empty() && notesVisible[2].empty() && notesVisible[3].empty())
   {
-    if (finishTimeMs == 0) { finishTimeMs = millis() + 3000; }
+    if (finishTimeMs == 0) { finishTimeMs = millis() + 1000; }
     else if (millis() >= finishTimeMs) 
     { 
       Serial.println("song FINISHED");
@@ -236,28 +238,47 @@ void BeatmapAttempt::plotNotes()
 {
   //Serial.println("clearing old notes");
   // clear old notes
-  for (uint32_t i = 0; i < prevNotePositions.size(); i++)
+  for (auto& prevPos : prevNotePositions)
   {
-    tft.fillRect(RUNWAY_X + 50 * prevNotePositions[i].lane, RUNWAY_Y + prevNotePositions[i].noteY, 49, 10, TFT_BLACK);
+    if (prevPos.height) // slider
+    {
+      tft.fillRect(RUNWAY_X + 50 * prevPos.lane, RUNWAY_Y + prevPos.y - prevPos.height, 49, prevPos.height, TFT_BLACK);
+    }
+    else // hit
+    {
+      tft.fillRect(RUNWAY_X + 50 * prevPos.lane, RUNWAY_Y + prevPos.y, 49, 10, TFT_BLACK);
+    }
   }
   prevNotePositions.clear();
 
   //Serial.println("plotting new notes");
   // plot new notes 
-  for (uint32_t i = 0; i < notePositions.size(); i++)
+  uint16_t noteColour;
+  for (auto& pos : notePositions)
   {
-    prevNotePositions.push_back(notePositions[i]);
-    if (notePositions[i].active)
+    prevNotePositions.push_back(pos);
+
+    Serial.println("plotting note:");
+    const char* posStr = notePosToString(pos).c_str();
+      Serial.println(posStr);
+
+    if (pos.active) { noteColour = TFT_GREENYELLOW; }
+    else { noteColour = TFT_MAGENTA; }
+
+    if (pos.height) // slider
     {
-      tft.fillRect(RUNWAY_X + 50 * notePositions[i].lane, RUNWAY_Y + notePositions[i].noteY, 49, 10, TFT_GREENYELLOW);
+      Serial.println("slider^");
+      tft.fillRect(RUNWAY_X + 50 * pos.lane, RUNWAY_Y + pos.y - pos.height, 49, pos.height, noteColour);
     }
-    else
+    else // hit
     {
-      tft.fillRect(RUNWAY_X + 50 * notePositions[i].lane, RUNWAY_Y + notePositions[i].noteY, 49, 10, TFT_MAGENTA);
+      Serial.println("hit^");
+      tft.fillRect(RUNWAY_X + 50 * pos.lane, RUNWAY_Y + pos.y, 49, 10, noteColour);
     }
   }
   //Serial.println("exit plotNotes\n");
 }
+
 
 /**
 * Plots scoreboard.
