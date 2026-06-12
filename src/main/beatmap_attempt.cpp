@@ -23,7 +23,7 @@ void BeatmapAttempt::loadBeatmap()
 
   notes.clear();
   std::vector<NoteData>::iterator noteData;
-  for (noteData = sampleHold.begin(); noteData < sampleHold.end(); noteData++)
+  for (noteData = sampleHoldOverlap.begin(); noteData < sampleHoldOverlap.end(); noteData++)
   {
     Note note = {noteData->lane, noteData->timeMs, noteData->type, noteData->endTimeMs, false, false, false, HitJudgement::Miss, 1};
     notes.push_back(note);
@@ -40,62 +40,164 @@ void BeatmapAttempt::loadBeatmap()
 
 void BeatmapAttempt::processInputs()
 {
+  bool noteMatched;
+  uint32_t noteScore;
+  int32_t pressTimeMs, hitDeviation;
+
   for (auto& input : inputs)
   {
-    if (input.type == InputType::Release) { continue; }
+    noteMatched = false;
+    noteScore = 0;
 
-    uint32_t noteScore = 0;
-    bool found = false;
-    for (auto& note : notesVisible[input.lane])
+    if (input.type == InputType::Press) 
     {
-      int32_t pressTimeMs = input.timeMs - startTimeMs; // convert input global timestamp to beatmap timestamp
-      int32_t hitDeviation = pressTimeMs - static_cast<int32_t>(note.timeMs);
-      /*
-      Find earliest active note.
-      Conditions for matching an input to a note:
-      1. Note has not yet been clicked
-      2. Note is active
-      3. Input is within the active window of the note
-      */
-      if (!note.clicked && note.active &&
-          std::abs(hitDeviation) <= GOOD_DEVIATION)
+      for (auto& note : notesVisible[input.lane])
       {
-        // Serial.println("notes/input match");
-        found = true;
-        note.clicked = true;
-        note.pending = true;
-
-        // update accuracy meter pointer
-        plotAccuracyPointer(hitDeviation);
-
-        // score input 
-        if (std::abs(hitDeviation) <= PERFECT_DEVIATION)
+        pressTimeMs = input.timeMs - startTimeMs; // convert input global timestamp to beatmap timestamp
+        hitDeviation = pressTimeMs - static_cast<int32_t>(note.timeMs);
+        /*
+        Conditions for matching a press to a hit note:
+        1. Note has not yet been clicked
+        2. Note is active
+        */
+        if (!note.clicked && note.active)
         {
-          num300++;
-          noteScore = 300 * multiplier;
-          note.judgement = HitJudgement::_300;
-        }
-        else if (std::abs(hitDeviation) <= GREAT_DEVIATION)
-        {
-          num100++;
-          noteScore = 100 * multiplier;
-          note.judgement = HitJudgement::_100;
-        }
-        else 
-        {
-          num50++;
-          noteScore = 50 * multiplier;
-          note.judgement = HitJudgement::_50;
-        }
+          if (note.type == NoteType::Hit)
+          {
+            noteMatched = true;
+            note.clicked = true;
+            
+            // update accuracy meter pointer
+            plotAccuracyPointer(hitDeviation);
 
-        note.multiplier = multiplier;
-        multiplier++;
-        break;
+            // score input 
+            if (std::abs(hitDeviation) <= PERFECT_DEVIATION)
+            {
+              num300++;
+              noteScore = 300 * multiplier;
+              note.judgement = HitJudgement::_300;
+            }
+            else if (std::abs(hitDeviation) <= GREAT_DEVIATION)
+            {
+              num100++;
+              noteScore = 100 * multiplier;
+              note.judgement = HitJudgement::_100;
+            }
+            else 
+            {
+              num50++;
+              noteScore = 50 * multiplier;
+              note.judgement = HitJudgement::_50;
+            }
+
+            note.multiplier = multiplier;
+            multiplier++;
+
+            Serial.println("\nMatched press to hit:");
+            char buffer[64];
+            sprintf(buffer, "pressTime: %d, dev: %d", pressTimeMs, hitDeviation);
+            Serial.println(buffer);
+            const char* noteStr = noteToString(note).c_str();
+            Serial.println(noteStr);
+
+            break;
+          }
+          // note.type == NoteType::Slider
+          else
+          {
+            /*
+            Conditions for matching a press to a slider note:
+            1. Note has not yet been clicked
+            2. Note is in first active window
+            3. Note is not pending
+            */
+            if (!note.pending && pressTimeMs <= note.timeMs + GOOD_DEVIATION)
+            {
+              noteMatched = true;
+              note.pending = true;
+
+              Serial.println("\nMatched press to slider:");
+              const char* noteStr = noteToString(note).c_str();
+              Serial.println(noteStr);
+
+              break;
+            }
+          }
+        }
+      }
+    }
+    // input.type == InputType::Release
+    else
+    {
+      for (auto& note : notesVisible[input.lane])
+      {
+        pressTimeMs = input.timeMs - startTimeMs; // convert input global timestamp to beatmap timestamp
+        hitDeviation = pressTimeMs - static_cast<int32_t>(note.endTimeMs);
+
+        /*
+        Conditions for matching a release to a slider note:
+        1. Note has not yet been clicked
+        2. Note is in second active window
+        3. Note is pending
+        */
+        if (!note.clicked && note.active && pressTimeMs >= note.endTimeMs - GOOD_DEVIATION && note.pending)
+        {
+          if (note.type == NoteType::Slider)
+          {
+            noteMatched = true;
+            note.clicked = true;
+            note.pending = false;
+            
+            // update accuracy meter pointer
+            plotAccuracyPointer(hitDeviation);
+
+            // score input 
+            if (std::abs(hitDeviation) <= PERFECT_DEVIATION)
+            {
+              num300++;
+              noteScore = 300 * multiplier;
+              note.judgement = HitJudgement::_300;
+            }
+            else if (std::abs(hitDeviation) <= GREAT_DEVIATION)
+            {
+              num100++;
+              noteScore = 100 * multiplier;
+              note.judgement = HitJudgement::_100;
+            }
+            else 
+            {
+              num50++;
+              noteScore = 50 * multiplier;
+              note.judgement = HitJudgement::_50;
+            }
+
+            note.multiplier = multiplier;
+            multiplier++;
+
+            Serial.println("\nMatched release to slider:");
+            char buffer[64];
+            sprintf(buffer, "releaseTime: %d, dev: %d", pressTimeMs, hitDeviation);
+            Serial.println(buffer);
+            const char* noteStr = noteToString(note).c_str();
+            Serial.println(noteStr);
+
+            break;
+          }
+        }
+        // ignore InputType::Release for NoteType::Hit
+        else if (note.type == NoteType::Hit && note.clicked)
+        {
+          noteMatched = true;
+
+          Serial.println("\nMatched release to hit: ignoring...");
+          const char* noteStr = noteToString(note).c_str();
+          Serial.println(noteStr);
+        }
       }
     }
 
     // if input outside all active windows, reset multiplier (and combo)
-    if (!found && notesVisible[input.lane].size() != 0)
+    if (!noteMatched && notesVisible[input.lane].size() != 0)
     {
       if (multiplier > maxCombo) { maxCombo = multiplier; } // update max combo
       multiplier = 1;
@@ -126,22 +228,36 @@ void BeatmapAttempt::updateNotes()
     nextNote++;
   }
 
+  // check if any notes' "activeness" has changed 
   for (size_t lane = 0; lane < 4; lane++)
   {
     // Serial.print("active/inactive check lane: ");
     // Serial.println(lane);
     for (auto& note : notesVisible[lane])
     {
-      // check if any notes have become inactive i.e. exited the window of a "good" judgement
-      if (beatmapTimeMs > note.endTimeMs + GOOD_DEVIATION && note.active)
+      // note entered first (head) active window
+      if (beatmapTimeMs >= note.timeMs - GOOD_DEVIATION && beatmapTimeMs <= note.timeMs + GOOD_DEVIATION && !note.active)
       {
-        // Serial.println("inactive note before:");
-        // const char* noteStr = noteToString(note).c_str();
-        // Serial.println(noteStr);
-
+        note.active = true;
+      }
+      // note between head and tail windows
+      else if (beatmapTimeMs > note.timeMs + GOOD_DEVIATION && beatmapTimeMs < note.endTimeMs - GOOD_DEVIATION && note.active)
+      {
+        note.active = false;
+      }
+      // note entered second (tail) active window
+      else if (beatmapTimeMs >= note.endTimeMs - GOOD_DEVIATION && beatmapTimeMs <= note.endTimeMs + GOOD_DEVIATION && !note.active)
+      {
+        note.active = true;
+      }
+      // note left tail window, and is now out of play
+      else if (beatmapTimeMs > note.endTimeMs + GOOD_DEVIATION && note.active)
+      {
         note.active = false;
         note.pending = false;
-        // if note become inactive without being clicked, a miss is counted
+        completedCount++;
+
+        // if note leaves tail window without being clicked, a miss is counted
         if (!note.clicked)
         {
           note.judgement = HitJudgement::Miss;
@@ -149,23 +265,11 @@ void BeatmapAttempt::updateNotes()
           if (multiplier > maxCombo) { maxCombo = multiplier; }
           multiplier = 1;
         }
-        completedCount++;
-        // Serial.println("inactive note:");
-        // const char* noteStr1 = noteToString(note).c_str();
-        // Serial.println(noteStr1);
-      }
-      // check if any notes have become active i.e. entered the window of a "good" judgement
-      if (beatmapTimeMs <= note.endTimeMs + GOOD_DEVIATION && beatmapTimeMs >= note.timeMs - GOOD_DEVIATION && !note.active)
-      {
-        note.active = true;
-        // Serial.println("active note:");
-        // const char* noteStr = noteToString(note).c_str();
-        // Serial.println(noteStr);
       }
     }
   }
 
-  // check if any notes have expired
+  // check if any notes have moved off screen
   for (size_t lane = 0; lane < 4; lane++)
   {
     // Serial.print("expiry check lane: ");
@@ -265,12 +369,12 @@ void BeatmapAttempt::plotNotes()
 
     if (pos.height) // slider
     {
-      Serial.println("slider^");
+      //Serial.println("slider^");
       tft.fillRect(RUNWAY_X + 50 * pos.lane, RUNWAY_Y + pos.y - pos.height, 49, pos.height, noteColour);
     }
     else // hit
     {
-      Serial.println("hit^");
+      //Serial.println("hit^");
       tft.fillRect(RUNWAY_X + 50 * pos.lane, RUNWAY_Y + pos.y, 49, 10, noteColour);
     }
   }

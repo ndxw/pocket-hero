@@ -33,7 +33,7 @@
 #define ACC_METER_H 276
 
 // windows for hitting 300, 100, and 50 in milliseconds
-#define OD_7
+#define OD_DEBUG
 #if defined(OD_7)
 #define PERFECT_DEVIATION 38.0
 #define GREAT_DEVIATION 84.0

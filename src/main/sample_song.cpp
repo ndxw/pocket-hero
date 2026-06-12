@@ -48,18 +48,18 @@ std::vector<NoteData> sampleHold = {
   {0, 9000, NoteType::Hit   , 9000}
 };
 
-// std::vector<Note> sampleHoldOverlap = {
-//   {0, 3000, NoteType::Hit, 3000},
-//   {1, 3250, NoteType::Hit, 4000},
-//   {2, 3500, NoteType::Hit, 5000},
-//   {3, 3750, NoteType::Hit, 6000},
-//   {0, 4000, NoteType::Hit, 7000},
-//   {2, 4500, NoteType::Hit, 8000},
-//   {1, 5000, NoteType::Hit, 9000},
-//   {3, 5333, NoteType::Hit, 10000},
-//   {2, 5666, NoteType::Hit, 11000},
-//   {1, 6000, NoteType::Hit, 12000}
-// };
+std::vector<NoteData> sampleHoldOverlap = {
+  {0, 3000, NoteType::Slider, 4000},
+  {2, 3500, NoteType::Hit   , 3500},
+  {3, 4000, NoteType::Hit   , 4000}
+  // {2, 5000, NoteType::Slider, 5500},
+  // {0, 6000, NoteType::Hit   , 6000},
+  // {1, 6500, NoteType::Hit   , 6500},
+  // {1, 7000, NoteType::Slider, 7500},
+  // {2, 8000, NoteType::Hit   , 8000},
+  // {3, 8500, NoteType::Hit   , 8500},
+  // {0, 9000, NoteType::Hit   , 9000}
+};
 
 // std::vector<Note> sampleMix = {
 //   {0, 3000, NoteType::Hit, 3000},

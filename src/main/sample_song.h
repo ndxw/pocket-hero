@@ -7,5 +7,6 @@
 extern std::vector<NoteData> sampleSong;
 extern std::vector<NoteData> sampleLong;
 extern std::vector<NoteData> sampleHold;
+extern std::vector<NoteData> sampleHoldOverlap;
 
 #endif // SAMPLE_SONG_H
